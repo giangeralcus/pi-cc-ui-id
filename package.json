@@ -1,0 +1,47 @@
+{
+  "name": "pi-cc-ui-id",
+  "version": "0.1.0",
+  "description": "Spinner Claude Code dengan laju token live, penghitung TTL prompt cache 5 menit dengan peringatan audio & status git, dan tool renderer kompak — versi Bahasa Indonesia untuk Pi coding agent.",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "main": "index.ts",
+  "types": "index.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/giangeralcus/pi-cc-ui-id.git"
+  },
+  "author": "giangeralcus",
+  "contributors": [
+    {
+      "name": "Arda YILDIZ",
+      "url": "https://github.com/ArdaYILDIZ-DEV",
+      "note": "Author asli pi-cc-ui (versi Turki)"
+    }
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/**/*.test.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-agent-core": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*",
+    "diff": "*",
+    "typebox": "*"
+  },
+  "dependencies": {
+    "diff": "^8.0.4"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.85.1",
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2"
+  }
+}

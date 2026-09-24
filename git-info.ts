@@ -343,7 +343,7 @@ export function registerGitInfo(pi: ExtensionAPI): GitInfoController {
 				return;
 			}
 
-			const summary = formatGitSummary(state, { includePr: true, language: "tr" });
+			const summary = formatGitSummary(state, { includePr: true, language: "id" });
 			ctx.ui.notify(`Git: ${summary}`, "info");
 		},
 	});

@@ -482,3 +482,85 @@ describe("spinner", () => {
 		});
 	});
 });
+
+describe("sliding-window token rate (tok/s)", () => {
+	class ClockSpinner extends SpinnerController {
+		public clock = 1_000_000;
+		protected override timeNow(): number {
+			return this.clock;
+		}
+		public tick(ms: number): void {
+			this.clock += ms;
+		}
+	}
+	const mockCtx = {
+		hasUI: true,
+		ui: {
+			setWorkingMessage: () => {},
+			setWorkingIndicator: () => {},
+			setTitle: () => {},
+		},
+	};
+	const usageUpdate = (out: number) =>
+		({
+			assistantMessageEvent: { type: "text_delta", delta: "x", partial: { usage: { output: out } } },
+		}) as any;
+
+	it("computes rate from windowed usage deltas, not cumulative elapsed", () => {
+		const c = new ClockSpinner();
+		c.handleAgentStart(mockCtx as any);
+		// Lambat di awal (TTFT panjang): 10 token pada detik ke-0.
+		c.handleMessageUpdate(usageUpdate(10), mockCtx as any);
+		c.tick(1000);
+		// Burst cepat: +50 token dalam 1 detik → laju jendela = 50 tok/s,
+		// bukan menunggu rata-rata kumulatif turun/naik perlahan.
+		c.handleMessageUpdate(usageUpdate(60), mockCtx as any);
+		assert.equal(c.getTokensPerSecond(), 50);
+	});
+
+	it("recomputes over the sliding window when speed changes mid-stream", () => {
+		const c = new ClockSpinner();
+		c.handleAgentStart(mockCtx as any);
+		c.handleMessageUpdate(usageUpdate(10), mockCtx as any);
+		c.tick(1000);
+		c.handleMessageUpdate(usageUpdate(60), mockCtx as any); // 50 tok/s
+		assert.equal(c.getTokensPerSecond(), 50);
+		c.tick(1000);
+		// Jendela penuh 2 dtk: (160-10)/2s = 75 tok/s — rata-rata jendela,
+		// tetap jauh lebih responsif daripada rata-rata kumulatif.
+		c.handleMessageUpdate(usageUpdate(160), mockCtx as any);
+		assert.equal(c.getTokensPerSecond(), 75);
+	});
+
+	it("hides stale rate after RATE window silence and resets on settle", () => {
+		const c = new ClockSpinner();
+		c.handleAgentStart(mockCtx as any);
+		c.handleMessageUpdate(usageUpdate(10), mockCtx as any);
+		c.tick(1000);
+		c.handleMessageUpdate(usageUpdate(60), mockCtx as any);
+		assert.ok(c.getState().tokensPerSecond !== null);
+		// Diam > RATE_FRESH_MS tanpa sampel baru → laju disembunyikan.
+		c.tick(3500);
+		assert.equal(c.getState().tokensPerSecond, null);
+		// Settle mereset penuh.
+		c.handleAgentSettled(mockCtx as any);
+		assert.equal(c.getTokensPerSecond(), null);
+	});
+
+	it("falls back to chars/4 estimate sampling when usage is absent", () => {
+		const c = new ClockSpinner();
+		c.handleAgentStart(mockCtx as any);
+		c.handleMessageUpdate(
+			{ assistantMessageEvent: { type: "text_delta", delta: "a".repeat(120) } } as any,
+			mockCtx as any,
+		);
+		c.tick(500);
+		c.handleMessageUpdate(
+			{ assistantMessageEvent: { type: "text_delta", delta: "b".repeat(120) } } as any,
+			mockCtx as any,
+		);
+		// 240 chars ≈ 60 token estimasi dalam 0,5 dtk → ~120 tok/s.
+		const tps = c.getTokensPerSecond();
+		assert.ok(tps !== null && tps >= 60 && tps <= 240, `tps=${tps}`);
+	});
+});

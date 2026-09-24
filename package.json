@@ -1,6 +1,6 @@
 {
   "name": "pi-cc-ui-id",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Spinner Claude Code dengan laju token live, penghitung TTL prompt cache 5 menit dengan peringatan audio & status git, dan tool renderer kompak — versi Bahasa Indonesia untuk Pi coding agent.",
   "type": "module",
   "keywords": ["pi-package"],

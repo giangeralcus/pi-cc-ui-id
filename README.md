@@ -2,7 +2,7 @@
 
 **Spinner Claude Code dengan laju token live, penghitung TTL prompt cache 5 menit dengan status git & peringatan audio, dan tool renderer kompak — versi Bahasa Indonesia untuk [Pi coding agent](https://github.com/badlogic/pi-mono).**
 
-> Fork berbahasa Indonesia dari [pi-cc-ui](https://github.com/ArdaYILDIZ-DEV/pi-cc-ui) karya [Arda YILDIZ](https://github.com/ArdaYILDIZ-DEV) (versi asli memakai kata kerja Turki). Proyek ini menerjemahkan seluruh UI ke Bahasa Indonesia — 187/187 test lulus.
+> Fork berbahasa Indonesia dari [pi-cc-ui](https://github.com/ArdaYILDIZ-DEV/pi-cc-ui) karya [Arda YILDIZ](https://github.com/ArdaYILDIZ-DEV) (versi asli memakai kata kerja Turki). Proyek ini menerjemahkan seluruh UI ke Bahasa Indonesia — 191/191 test lulus.
 
 `cc-ui-id` adalah extension UI terminal untuk Pi yang mengganti indikator kerja bawaan dengan spinner Claude Code 20fps plus kecepatan generasi streaming live (`tok/s`), menambahkan status git ganda dan penghitung TTL prompt cache di bawah editor, serta merender setiap tool call dalam gaya Claude yang kompak (`● Label(detail)` / `└ summary`).
 
@@ -24,7 +24,7 @@ Extension aktif pada start/reload berikutnya.
 
 ## Fitur
 
-* **Baris spinner Claude Code:** loop glyph ping-pong 20fps (`· ✢ ✳ ✶ ✻ ✽`) dengan sapuan glimmer kanan→kiri melintasi kata kerja aksi Bahasa Indonesia yang dinamis, penghitung token, kecepatan generasi streaming live (`tok/s`), waktu turn berjalan, dan glow berpikir bergelombang sinus.
+* **Baris spinner Claude Code:** loop glyph ping-pong 20fps (`· ✢ ✳ ✶ ✻ ✽`) dengan sapuan glimmer kanan→kiri melintasi kata kerja aksi Bahasa Indonesia yang dinamis, penghitung token, kecepatan generasi streaming live (`tok/s`, dihitung atas jendela bergulir 4 detik dari sampel usage/estimasi — responsif terhadap perubahan kecepatan, tidak terdrag TTFT/thinking seperti rata-rata kumulatif; laju usang >3 dtk otomatis disembunyikan), waktu turn berjalan, dan glow berpikir bergelombang sinus.
 
   Contoh kata kerja (dipilih acak setiap turn): `Memeriksa…`, `Berpikir…`, `Menganalisis…`, `Menyusun…`, `Memvalidasi…`, `Mengompilasi…`, `Memindai…` (±90 kata).
 * **Status git & bar TTL prompt cache:** menampilkan branch git, jumlah file berubah, dan PR terbuka di kiri (`main* · 3 file`), bersama penghitung TTL `36d / 5m` rata kanan tepat di bawah editor.
@@ -67,7 +67,7 @@ Singkatan Bahasa Indonesia: `d` = detik, `m` = menit, `j` = jam. Contoh: `45d`, 
 ├── README.md               # dokumentasi proyek
 ├── sounds                  # file audio peringatan cache (3.mp3, 4.mp3)
 ├── spinner.ts              # loop spinner CC 20fps, sapuan glimmer, kata kerja Indonesia, tok/s live
-├── tests                   # 187 unit, lifecycle, performance, dan security tests
+├── tests                   # 191 unit, lifecycle, performance, dan security tests
 ├── tool-renderers.ts       # renderer kompak gaya Claude untuk builtin + custom tools (`/cc-tools`)
 └── tsconfig.json           # konfigurasi TypeScript
 ```

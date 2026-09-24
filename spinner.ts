@@ -659,6 +659,14 @@ export interface SpinnerStateSnapshot {
 }
 
 export class SpinnerController {
+	/** Lebar jendela laju tok/s (jendela bergulir ala statusline modern). */
+	private static readonly RATE_WINDOW_MS = 4000;
+	/** Rentang minimum sampel sebelum laju dihitung (redam noise burst). */
+	private static readonly RATE_MIN_SPAN_MS = 250;
+	/** Sembunyikan laju bila tidak ada sampel baru selama durasi ini. */
+	private static readonly RATE_FRESH_MS = 3000;
+	/** Jeda tenang sebelum penghitung tak-naik dianggap pesan/meteran baru. */
+	private static readonly RATE_RESET_QUIET_MS = 1500;
 	private animStartMs = 0;
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private settledTokens = 0;
@@ -683,6 +691,69 @@ export class SpinnerController {
 	private runContentTokens = 0;
 	private runContentStreamMs = 0;
 	private currentTps: number | null = null;
+	// Laju jendela bergulir: sampel (waktu, token output) diambil dari usage saat
+	// tersedia (akurat per penyedia) atau estimasi chars/4 saat usage tidak ada.
+	// Laju ditampilkan = Δtoken / Δwaktu dalam jendela RATE_WINDOW_MS terakhir,
+	// bukan rata-rata kumulatif sejak awal stream (lambat konvergen & terdrag
+	// oleh TTFT/thinking). Sampel kedaluwarsa disembunyikan setelah RATE_FRESH_MS.
+	private rateSamples: { t: number; tokens: number }[] = [];
+	private lastRateSampleAt: number | null = null;
+	private lastEstimateSampleAt = 0;
+	private sawUsageOutput = false;
+
+	/** Sumber waktu; di-override pada test agar deterministik. */
+	protected timeNow(): number {
+		return Date.now();
+	}
+
+	private noteRateSample(tokens: number, now: number): void {
+		if (typeof tokens !== "number" || !Number.isFinite(tokens) || tokens < 0)
+			return;
+		const s = this.rateSamples;
+		const last = s[s.length - 1];
+		if (last) {
+			if (tokens <= last.tokens) {
+				// Penghitung output tidak monoton naik (message baru / reset per
+				// pesan): mulai jendela baru, jangan hitung delta negatif.
+				if (now - last.t >= SpinnerController.RATE_RESET_QUIET_MS) {
+					s.length = 0;
+					s.push({ t: now, tokens });
+					this.lastRateSampleAt = now;
+				}
+				return;
+			}
+		}
+		s.push({ t: now, tokens });
+		this.lastRateSampleAt = now;
+		while (
+			s.length > 1 &&
+			now - s[0].t > SpinnerController.RATE_WINDOW_MS
+		) {
+			s.shift();
+		}
+		if (s.length >= 2) {
+			const first = s[0];
+			const dtMs = now - first.t;
+			const dTokens = tokens - first.tokens;
+			if (dtMs >= SpinnerController.RATE_MIN_SPAN_MS && dTokens > 0) {
+				this.currentTps = dTokens / (dtMs / 1000);
+			}
+		}
+	}
+
+	private isRateFresh(): boolean {
+		return (
+			this.lastRateSampleAt !== null &&
+			this.timeNow() - this.lastRateSampleAt <=
+				SpinnerController.RATE_FRESH_MS
+		);
+	}
+
+	private resetRateWindow(): void {
+		this.rateSamples = [];
+		this.lastRateSampleAt = null;
+		this.lastEstimateSampleAt = 0;
+	}
 
 	constructor() {
 		activeWorkingVerb = this.verb;
@@ -704,8 +775,13 @@ export class SpinnerController {
 	}
 
 	public setTokensPerSecond(tps: number | null): void {
-		this.currentTps =
-			typeof tps === "number" && Number.isFinite(tps) && tps > 0 ? tps : null;
+		if (typeof tps === "number" && Number.isFinite(tps) && tps > 0) {
+			this.currentTps = tps;
+			this.lastRateSampleAt = this.timeNow();
+		} else {
+			this.currentTps = null;
+			this.lastRateSampleAt = null;
+		}
 	}
 
 	public getState(): SpinnerStateSnapshot {
@@ -715,7 +791,7 @@ export class SpinnerController {
 			settledTokens: this.settledTokens,
 			streamTokens: this.streamTokens,
 			totalTokens: this.settledTokens + this.streamTokens,
-			tokensPerSecond: this.currentTps,
+			tokensPerSecond: this.isRateFresh() ? this.currentTps : null,
 			thinkingStatus: this.thinkingStatus,
 			thinkingStartMs: this.thinkingStartMs,
 			effortSuffix: this.effortSuffix,
@@ -947,13 +1023,12 @@ export class SpinnerController {
 			out >= 0 &&
 			out !== this.streamTokens
 		) {
+			const now = this.timeNow();
 			this.streamTokens = Math.floor(out);
-			if (this.contentStreamStart !== null) {
-				const elapsedMs = Date.now() - this.contentStreamStart;
-				if (elapsedMs >= 200 && this.streamTokens > 0) {
-					this.currentTps = this.streamTokens / (elapsedMs / 1000);
-				}
-			}
+			this.sawUsageOutput = true;
+			// Sampel usage bersifat absolut per pesan → langsung masuk jendela;
+			// Δtoken/Δwaktu antar sampel tidak terpengaruh TTFT/thinking di awal.
+			this.noteRateSample(this.streamTokens, now);
 			changed = true;
 		}
 		if (ame.type === "toolcall_delta") {
@@ -962,7 +1037,7 @@ export class SpinnerController {
 			const delta =
 				typeof (ame as any).delta === "string" ? (ame as any).delta : "";
 			if (delta.length > 0) {
-				const now = Date.now();
+				const now = this.timeNow();
 				if (this.contentStreamStart === null) {
 					this.contentStreamStart = now;
 					this.firstContentDeltaCharacters = delta.length;
@@ -971,13 +1046,19 @@ export class SpinnerController {
 				this.contentCharacters += delta.length;
 				this.contentDeltaCount++;
 
-				const elapsedMs = now - this.contentStreamStart;
-				const streamedChars =
-					this.contentCharacters - this.firstContentDeltaCharacters;
-				if (this.contentDeltaCount >= 2 && elapsedMs >= 200 && streamedChars > 0) {
-					const estimatedTokens = Math.ceil(streamedChars / 4);
-					this.currentTps = estimatedTokens / (elapsedMs / 1000);
-					changed = true;
+				// Fallback tanpa usage: estimasi chars/4, disampling ke jendela
+				// yang sama (di-throttle supaya tidak berisik). Dilewati bila usage
+				// sudah tersedia agar dua sumber tidak bercampur dalam satu jendela.
+				if (!this.sawUsageOutput) {
+					const estTokens = Math.ceil(this.contentCharacters / 4);
+					if (
+						estTokens > 0 &&
+						now - this.lastEstimateSampleAt >= 150
+					) {
+						this.lastEstimateSampleAt = now;
+						this.noteRateSample(estTokens, now);
+						changed = true;
+					}
 				}
 			}
 		}
@@ -1028,6 +1109,12 @@ export class SpinnerController {
 				Array.isArray(msg?.content) &&
 				msg.content.some((b: any) => b?.type === "toolCall");
 		}
+		// Finalisasi laju pesan ini: utamakan laju jendela (fresh), fallback ke
+		// rata-rata kumulatif run, lalu reset jendela untuk pesan berikutnya.
+		if (this.sawUsageOutput && typeof out === "number" && out > 0) {
+			this.noteRateSample(Math.floor(out), this.timeNow());
+		}
+		const windowRate = this.isRateFresh() ? this.currentTps : null;
 		if (this.contentStreamStart !== null && this.contentCharacters > 0) {
 			const streamEnd = this.lastContentDeltaAt ?? this.contentStreamStart;
 			const streamMs = streamEnd - this.contentStreamStart;
@@ -1045,9 +1132,15 @@ export class SpinnerController {
 			if (this.contentDeltaCount >= 2 && streamMs >= 50 && streamedTokens > 0) {
 				this.runContentTokens += streamedTokens;
 				this.runContentStreamMs += streamMs;
-				this.currentTps = this.runContentTokens / (this.runContentStreamMs / 1000);
 			}
 		}
+		if (windowRate !== null) {
+			this.currentTps = windowRate;
+		} else if (this.runContentStreamMs > 0) {
+			this.currentTps = this.runContentTokens / (this.runContentStreamMs / 1000);
+		}
+		this.resetRateWindow();
+		this.sawUsageOutput = false;
 
 		this.contentStreamStart = null;
 		this.lastContentDeltaAt = null;
@@ -1068,6 +1161,8 @@ export class SpinnerController {
 
 	public handleAgentSettled(ctx: UiCtx): void {
 		this.currentTps = null;
+		this.lastRateSampleAt = null;
+		this.resetRateWindow();
 		this.stopLoop();
 		this.clearThinkingTimers();
 		this.clearRepaintTimer();

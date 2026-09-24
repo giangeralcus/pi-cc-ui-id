@@ -9,6 +9,7 @@ import { registerSpinner } from "./spinner.ts";
 import { registerCacheTimer } from "./cache-timer.ts";
 import { registerGitInfo, formatGitSummary } from "./git-info.ts";
 import { registerToolRenderers } from "./tool-renderers.ts";
+import { registerHarga } from "./harga.ts";
 
 export { registerSpinner, SpinnerController } from "./spinner.ts";
 export {
@@ -43,8 +44,20 @@ export {
 	addAssistantResponseMarker,
 } from "./tool-renderers.ts";
 
+export {
+	registerHarga,
+	HargaController,
+	KursCache,
+	buildSessionSummaryLines,
+	computeCostUsd,
+	parseGoogleFinanceRate,
+	formatIdr,
+	formatUsd,
+	formatDuration,
+} from "./harga.ts";
+
 export default function (pi: ExtensionAPI): void {
-	registerSpinner(pi);
+	const spinnerController = registerSpinner(pi);
 	const gitController = registerGitInfo(pi);
 	const cacheController = registerCacheTimer(pi, {
 		gitInfoProvider: () => formatGitSummary(gitController.getState()),
@@ -53,4 +66,7 @@ export default function (pi: ExtensionAPI): void {
 		cacheController.setGitInfoProvider(() => formatGitSummary(state));
 	});
 	registerToolRenderers(pi);
+	registerHarga(pi, {
+		streamStatsProvider: () => spinnerController.getSessionStreamStats(),
+	});
 }

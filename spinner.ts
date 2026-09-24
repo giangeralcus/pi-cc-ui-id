@@ -774,6 +774,11 @@ export class SpinnerController {
 		return this.currentTps;
 	}
 
+	/** Total token + durasi streaming konten sepanjang sesi (untuk ringkasan akhir). */
+	public getSessionStreamStats(): { tokens: number; ms: number } {
+		return { tokens: this.runContentTokens, ms: this.runContentStreamMs };
+	}
+
 	public setTokensPerSecond(tps: number | null): void {
 		if (typeof tps === "number" && Number.isFinite(tps) && tps > 0) {
 			this.currentTps = tps;

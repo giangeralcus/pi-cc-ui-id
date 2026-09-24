@@ -2,7 +2,7 @@
 
 **Spinner Claude Code dengan laju token live, penghitung TTL prompt cache 5 menit dengan status git & peringatan audio, dan tool renderer kompak — versi Bahasa Indonesia untuk [Pi coding agent](https://github.com/badlogic/pi-mono).**
 
-> Fork berbahasa Indonesia dari [pi-cc-ui](https://github.com/ArdaYILDIZ-DEV/pi-cc-ui) karya [Arda YILDIZ](https://github.com/ArdaYILDIZ-DEV) (versi asli memakai kata kerja Turki). Proyek ini menerjemahkan seluruh UI ke Bahasa Indonesia — 191/191 test lulus.
+> Fork berbahasa Indonesia dari [pi-cc-ui](https://github.com/ArdaYILDIZ-DEV/pi-cc-ui) karya [Arda YILDIZ](https://github.com/ArdaYILDIZ-DEV) (versi asli memakai kata kerja Turki). Proyek ini menerjemahkan seluruh UI ke Bahasa Indonesia — 207/207 test lulus.
 
 `cc-ui-id` adalah extension UI terminal untuk Pi yang mengganti indikator kerja bawaan dengan spinner Claude Code 20fps plus kecepatan generasi streaming live (`tok/s`), menambahkan status git ganda dan penghitung TTL prompt cache di bawah editor, serta merender setiap tool call dalam gaya Claude yang kompak (`● Label(detail)` / `└ summary`).
 
@@ -36,6 +36,7 @@ Extension aktif pada start/reload berikutnya.
 * **Slash command:** `/cache` menampilkan waktu berlalu/sisa persis; `/cache toggle` menampilkan/menyembunyikan penghitung; `/cache sound` mengaktifkan/mematikan suara; `/cache sound test` memutar suara uji.
 * **Perintah git:** `/git` menampilkan status repositori, branch, dan PR terbuka; `/git refresh` memaksa pembaruan latar belakang.
 * **Tool renderer kompak & diff Claude:** setiap tool dirender sebagai `● Label(detail)` dengan ringkasan satu baris `└ summary`. Tool `edit` memiliki styling diff penuh gaya Claude Code dengan latar hijau/merah selebar baris, intra-line word diff tingkat token, tata letak gutter `<lineNum> <sign> <code>`, dan syntax highlighting. Toggle dinamis dengan `/cc-tools`.
+* **Ringkasan sesi & biaya (`/harga`):** total token in/out/cache per sesi, jumlah permintaan, rata-rata kecepatan streaming (`tok/s`), dan estimasi biaya USD yang otomatis dikonversi ke Rupiah memakai kurs terbaru **Google Finance** (USD/IDR) — sumber kurs selalu dicantumkan beserta waktu pengambilan, cache 30 menit, `--` kalau tarif model tidak tersedia. Muncul otomatis saat sesi berakhir; `/harga` untuk on-demand, `/harga refresh` paksa ambil kurs baru, `/harga reset` nolkan penghitung.
 
 ## Format waktu
 
@@ -61,13 +62,14 @@ Singkatan Bahasa Indonesia: `d` = detik, `m` = menit, `j` = jam. Contoh: `45d`, 
 ├── cache-timer.ts          # widget TTL prompt cache 5 menit dengan integrasi status git (di bawah editor)
 ├── claude-diff.ts          # parser diff, syntax highlighter, dan komponen TUI gaya Claude Code
 ├── git-info.ts             # pelacak repositori git & pull request tanpa dependensi
+├── harga.ts                # ringkasan sesi: token in/out, avg tok/s, biaya USD → Rupiah via kurs Google
 ├── index.ts                # entry point extension: spinner, git info, cache timer, tool renderers
 ├── package.json            # konfigurasi package & skrip test
 ├── palette.ts              # warna palet Claude Code, ANSI truecolor, dan sanitasi
 ├── README.md               # dokumentasi proyek
 ├── sounds                  # file audio peringatan cache (3.mp3, 4.mp3)
 ├── spinner.ts              # loop spinner CC 20fps, sapuan glimmer, kata kerja Indonesia, tok/s live
-├── tests                   # 191 unit, lifecycle, performance, dan security tests
+├── tests                   # 207 unit, lifecycle, performance, dan security tests
 ├── tool-renderers.ts       # renderer kompak gaya Claude untuk builtin + custom tools (`/cc-tools`)
 └── tsconfig.json           # konfigurasi TypeScript
 ```
